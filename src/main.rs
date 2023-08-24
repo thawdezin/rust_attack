@@ -1,48 +1,29 @@
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use std::time::Duration;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, Server};
+use tokio::time;
 
 #[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
-    send_http().await?;
-    Ok(())
+async fn main() {
+    let target_url = "https://www..com/";
+
+    let make_svc = make_service_fn(|_conn| {
+        async { Ok::<_, hyper::Error>(service_fn(handle_request)) }
+    });
+
+    let server = Server::bind(&([127, 0, 0, 1], 8080).into())
+        .serve(make_svc);
+
+    println!("Slowloris attack started against: {}", target_url);
+
+    if let Err(e) = server.await {
+        eprintln!("server error: {}", e);
+    }
 }
 
-async fn send_http() -> Result<(), reqwest::Error> {
-    // Create a URL
-    let url = "https://thawdezin.web.app";
+async fn handle_request(_req: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+    // Introduce a delay to keep the connection open
+    time::sleep(Duration::from_secs(30)).await;
 
-    // Create a vector of headers
-    let headers = vec![
-        ("Header1", "Value1"),
-        ("Header2", "Value2"),
-        // Add more headers here...
-    ];
-
-    // Create a header map
-    let mut header_map = HeaderMap::new();
-    for (name, value) in headers {
-        header_map.insert(
-            name,
-            HeaderValue::from_str(value).expect("Invalid header value"),
-        );
-    }
-
-    // Create a client
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()?;
-
-    // Send 10 requests with different headers
-    for _ in 0..1000000000 {
-        let response = client
-            .get(url)
-            .headers(header_map.clone())
-            .send()
-            .await?;
-
-        println!("Response: {:?}", response);
-        println!();
-    }
-
-    Ok(())
+    Ok(Response::new(Body::from("This is a slow HTTP response.\n")))
 }
